@@ -54,6 +54,7 @@ Nhóm đã thực hiện kịch bản **Inject Corruption** bằng cách chạy 
 **Kết quả định lượng:**
 - **Trước khi fix (Inject):** `hits_forbidden=yes`. Hệ thống retrieval trả về cả thông tin 7 ngày (đúng) và 14 ngày (sai), gây nhiễu cho Agent.
 - **Sau khi fix (Heal):** `hits_forbidden=no`. Pipeline tự động chuyển đổi chuỗi "14 ngày" thành "7 ngày" và thực hiện deduplication. Kết quả retrieval chỉ còn duy nhất thông tin 7 ngày chính xác.
+- **Grading Run:** Đã hoàn thành bộ đề `grading_questions.json` (17:00). Kết quả đạt 100% tiêu chí (`contains_expected=true`, `hits_forbidden=false`, `top1_doc_matches=true`).
 
 ---
 

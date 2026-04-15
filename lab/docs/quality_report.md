@@ -2,6 +2,7 @@
 
 **run_id:** inject-bad (corruption) & healed (fixed)
 **Ngày:** 2026-04-15
+**Grading:** PASS (3/3 câu) - Xem `artifacts/eval/grading_run.jsonl`
 
 ---
 

@@ -10,6 +10,7 @@ from __future__ import annotations
 import csv
 import hashlib
 import re
+import yaml
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
@@ -99,6 +100,17 @@ def clean_rows(
         eff_raw = raw.get("effective_date", "")
         exported_at = raw.get("exported_at", "")
 
+        # Distinction (d): Đọc cutoff date từ contract thay vì hard-code
+        hr_min_date = "2026-01-01"
+        try:
+            contract_path = Path(__file__).resolve().parent.parent / "contracts" / "data_contract.yaml"
+            if contract_path.is_file():
+                with contract_path.open(encoding="utf-8") as f:
+                    cfg = yaml.safe_load(f)
+                    hr_min_date = cfg.get("policy_versioning", {}).get("hr_leave_min_effective_date", hr_min_date)
+        except Exception:
+            pass
+
         if doc_id not in ALLOWED_DOC_IDS:
             quarantine.append({**raw, "reason": "unknown_doc_id"})
             continue
@@ -111,12 +123,13 @@ def clean_rows(
             quarantine.append({**raw, "reason": eff_err, "effective_date_raw": eff_raw})
             continue
 
-        if doc_id == "hr_leave_policy" and eff_norm < "2026-01-01":
+        if doc_id == "hr_leave_policy" and eff_norm < hr_min_date:
             quarantine.append(
                 {
                     **raw,
                     "reason": "stale_hr_policy_effective_date",
                     "effective_date_normalized": eff_norm,
+                    "min_required_date": hr_min_date, # Traceability
                 }
             )
             continue

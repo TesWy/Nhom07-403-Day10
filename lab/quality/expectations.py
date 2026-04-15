@@ -8,7 +8,13 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
+
+try:
+    from pydantic import BaseModel, Field, field_validator
+    HAS_PYDANTIC = True
+except ImportError:
+    HAS_PYDANTIC = False
 
 
 @dataclass
@@ -19,6 +25,23 @@ class ExpectationResult:
     detail: str
 
 
+if HAS_PYDANTIC:
+    class CleanedRowModel(BaseModel):
+        """Pydantic model for +2 Bonus point (Distinction a)."""
+        chunk_id: str = Field(min_length=5)
+        doc_id: str
+        chunk_text: str = Field(min_length=8)
+        effective_date: str
+        exported_at: Optional[str] = None
+
+        @field_validator("effective_date")
+        @classmethod
+        def validate_iso_date(cls, v: str) -> str:
+            if not re.match(r"^\d{4}-\d{2}-\d{2}$", v):
+                raise ValueError("effective_date must be YYYY-MM-DD")
+            return v
+
+
 def run_expectations(cleaned_rows: List[Dict[str, Any]]) -> Tuple[List[ExpectationResult], bool]:
     """
     Trả về (results, should_halt).
@@ -26,6 +49,23 @@ def run_expectations(cleaned_rows: List[Dict[str, Any]]) -> Tuple[List[Expectati
     should_halt = True nếu có bất kỳ expectation severity halt nào fail.
     """
     results: List[ExpectationResult] = []
+
+    # E0 (Bonus): Pydantic Schema Validation
+    if HAS_PYDANTIC:
+        pydantic_fails = 0
+        for row in cleaned_rows:
+            try:
+                CleanedRowModel(**row)
+            except Exception as e:
+                pydantic_fails += 1
+        results.append(
+            ExpectationResult(
+                "pydantic_schema_validation",
+                pydantic_fails == 0,
+                "halt",
+                f"schema_violations={pydantic_fails}",
+            )
+        )
 
     # E1: có ít nhất 1 dòng sau clean
     ok = len(cleaned_rows) >= 1

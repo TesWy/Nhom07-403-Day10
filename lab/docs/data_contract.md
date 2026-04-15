@@ -53,3 +53,13 @@ Record bị flag **quarantine** (không bị xoá hoàn toàn) và lưu tại `a
 | SLA P1 | `data/docs/sla_p1_2026.txt` | 2026 | 15 phút phản hồi, 4 giờ resolution |
 | HR Leave | `data/docs/hr_leave_policy.txt` | 2026 (12 ngày) | Bản 2025 (10 ngày) bị quarantine |
 | IT Helpdesk FAQ | `data/docs/it_helpdesk_faq.txt` | Hiện hành | Cập nhật theo ticket thực tế |
+
+---
+
+## 5. Monitoring & SLA
+
+- **Freshness SLA:** < 24 giờ (tính từ `latest_exported_at` tới thời điểm run pipeline).
+- **Quality Alert:**
+  - **HALT:** Nếu `quarantine_count > 0` cho các lỗi nghiêm trọng (`unknown_doc_id`, `stale_hr_policy`).
+  - **WARN:** Nếu `short_chunks` hoặc `duplicate_chunks` chiếm tỷ lệ đáng kể (>10%).
+- **Ownership:** Nhóm 07 chịu trách nhiệm xử lý các bản ghi trong thư mục `quarantine/` trong vòng 48 giờ làm việc.

@@ -66,6 +66,18 @@ def cmd_run(args: argparse.Namespace) -> int:
     log(f"run_id={run_id}")
     log(f"raw_records={raw_count}")
 
+    # Boundary 1: Ingest Freshness Check (+1 Bonus point - Distinction b)
+    if rows:
+        max_raw_ts = max((r.get("exported_at", "") for r in rows), default="")
+        if max_raw_ts:
+            dt_raw = datetime.fromisoformat(max_raw_ts.replace("Z", "+00:00")) if "T" in max_raw_ts else None
+            if dt_raw:
+                if dt_raw.tzinfo is None: dt_raw = dt_raw.replace(tzinfo=timezone.utc)
+                age_ingest = (datetime.now(timezone.utc) - dt_raw).total_seconds() / 3600.0
+                sla = float(os.environ.get("FRESHNESS_SLA_HOURS", "24"))
+                status_ingest = "PASS" if age_ingest <= sla else "FAIL"
+                log(f"freshness_boundary=ingest status={status_ingest} age_hours={round(age_ingest, 2)}")
+
     cleaned, quarantine = clean_rows(
         rows,
         apply_refund_window_fix=not args.no_refund_fix,
@@ -122,7 +134,7 @@ def cmd_run(args: argparse.Namespace) -> int:
     log(f"manifest_written={man_path.relative_to(ROOT)}")
 
     status, fdetail = check_manifest_freshness(man_path, sla_hours=float(os.environ.get("FRESHNESS_SLA_HOURS", "24")))
-    log(f"freshness_check={status} {json.dumps(fdetail, ensure_ascii=False)}")
+    log(f"freshness_boundary=publish status={status} detail={json.dumps(fdetail, ensure_ascii=False)}")
 
     log("PIPELINE_OK")
     return 0

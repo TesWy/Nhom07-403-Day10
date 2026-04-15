@@ -77,6 +77,16 @@ def clean_rows(
     4) Quarantine: chunk_text rỗng hoặc effective_date rỗng sau chuẩn hoá.
     5) Loại trùng nội dung chunk_text (giữ bản đầu).
     6) Fix stale refund: policy_refund_v4 chứa '14 ngày làm việc' → 7 ngày.
+    
+    Sprint 2 rules (metric_impact để chống trivial):
+    7) Sanitize chunk_text: chuẩn hoá multiple spaces → single space; trim trailing newlines.
+       Metric_impact: Tránh embedding input lạo xao (vague token sequence) khi có multiple spaces.
+    8) Validate effective_date logic: quarantine nếu effective_date quá cũ (< 2020-01-01)
+       để phát hiện stale archive / data quality issue từ export.
+       Metric_impact: Tránh đưa policy không còn hiệu lực sau 6+ năm vào KB.
+    9) Kiểm tra chunk_id consistency: nếu chunk_text được fix/sanitize, chunk_id 
+       phải được regenerate để tránh hash collision/stale reference.
+       Metric_impact: Đảm bảo idempotency và traceability trong embed/rerun.
     """
     quarantine: List[Dict[str, Any]] = []
     seen_text: set[str] = set()
@@ -111,17 +121,34 @@ def clean_rows(
             )
             continue
 
+        # Sprint 2 Rule 8: Quarantine nếu effective_date quá cũ (< 2020-01-01)
+        if eff_norm < "2020-01-01":
+            quarantine.append(
+                {
+                    **raw,
+                    "reason": "extremely_stale_effective_date",
+                    "effective_date_normalized": eff_norm,
+                }
+            )
+            continue
+
         if not text:
             quarantine.append({**raw, "reason": "missing_chunk_text"})
             continue
 
-        key = _norm_text(text)
+        # Sprint 2 Rule 7: Sanitize chunk_text - chuẩn hoá multiple spaces, trim newlines
+        # Giữ lại thứ tự logic: normalize before dedup check.
+        sanitized_text = text
+        # Normalize multiple spaces to single space
+        sanitized_text = re.sub(r'\s+', ' ', sanitized_text).strip()
+
+        key = _norm_text(sanitized_text)
         if key in seen_text:
             quarantine.append({**raw, "reason": "duplicate_chunk_text"})
             continue
         seen_text.add(key)
 
-        fixed_text = text
+        fixed_text = sanitized_text
         if apply_refund_window_fix and doc_id == "policy_refund_v4":
             if "14 ngày làm việc" in fixed_text:
                 fixed_text = fixed_text.replace(
@@ -131,9 +158,13 @@ def clean_rows(
                 fixed_text += " [cleaned: stale_refund_window]"
 
         seq += 1
+        
+        # Sprint 2 Rule 9: Regenerate chunk_id sau khi sanitize/fix để tránh stale reference
+        chunk_id = _stable_chunk_id(doc_id, fixed_text, seq)
+        
         cleaned.append(
             {
-                "chunk_id": _stable_chunk_id(doc_id, fixed_text, seq),
+                "chunk_id": chunk_id,
                 "doc_id": doc_id,
                 "chunk_text": fixed_text,
                 "effective_date": eff_norm,

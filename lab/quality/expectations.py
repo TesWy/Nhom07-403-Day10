@@ -112,5 +112,40 @@ def run_expectations(cleaned_rows: List[Dict[str, Any]]) -> Tuple[List[Expectati
         )
     )
 
+    # E7 (Sprint 2): Không được chứa ngôn ngữ mơ hồ SLA (vague / approximation)
+    # Metric_impact: Tránh retrieval câu hỏi về SLA nhận sai commitment.
+    vague_sla = [
+        r
+        for r in cleaned_rows
+        if r.get("doc_id") in ("sla_p1_2026",)
+        and any(w in (r.get("chunk_text") or "").lower() for w in ["khoảng", "xấp xỉ", "eventually", "approximately", "roughly"])
+    ]
+    ok7 = len(vague_sla) == 0
+    results.append(
+        ExpectationResult(
+            "sla_no_vague_language",
+            ok7,
+            "halt",
+            f"vague_sla_violations={len(vague_sla)}",
+        )
+    )
+
+    # E8 (Sprint 2): Tất cả chunk phải có valid chunk_id không rỗng, định dạng doc_id_seq_hash
+    # Metric_impact: Đảm bảo idempotent embed và traceability.
+    bad_chunk_ids = [
+        r
+        for r in cleaned_rows
+        if not (r.get("chunk_id") or "").strip() or "_" not in (r.get("chunk_id") or "")
+    ]
+    ok8 = len(bad_chunk_ids) == 0
+    results.append(
+        ExpectationResult(
+            "valid_chunk_id_format",
+            ok8,
+            "halt",
+            f"invalid_chunk_ids={len(bad_chunk_ids)}",
+        )
+    )
+
     halt = any(not r.passed and r.severity == "halt" for r in results)
     return results, halt

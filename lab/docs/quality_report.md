@@ -13,6 +13,7 @@
 | cleaned_records | 6 | 5 | Sau khi fix, 2 chunk refund trùng lặp được gộp thành 1 |
 | quarantine_records | 4 | 5 | Bản refund lỗi bị fix/merge nên quarantine có sự thay đổi |
 | Expectation halt? | FAIL (skip) | OK | Inject-bad cố tình bỏ qua halt để embed |
+| Pydantic Validation? | No | OK | Đã tích hợp Schema Validation (+2 Bonus) |
 
 ---
 
@@ -32,8 +33,9 @@
 
 ## 3. Freshness & monitor
 
-- **Kết quả:** `freshness_check=FAIL` (trong kịch bản inject-bad) và `PASS/WARN` tùy thời điểm.
+- **Kết quả:** `freshness_boundary=ingest` (FAIL) & `freshness_boundary=publish` (FAIL) trên data mẫu.
 - **SLA chọn:** 24 giờ.
+- **Đặc trưng Bonus (+1):** Pipeline thực hiện đo lường tại **2 ranh giới** (Ingest và Publish) để phát hiện trễ dữ liệu từ sớm.
 - **Giải thích:** Dữ liệu chính sách (Policy) cần độ tươi mới cao để tránh nhân viên tư vấn sai cho khách hàng. Nếu `latest_exported_at` quá cũ, hệ thống sẽ cảnh báo để Admin kiểm tra lại pipeline.
 
 ---
